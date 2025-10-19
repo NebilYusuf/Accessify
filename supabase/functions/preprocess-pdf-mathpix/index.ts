@@ -30,6 +30,24 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
+    // Get notebook_id from the source
+    const { data: sourceData, error: sourceError } = await supabaseClient
+      .from('sources')
+      .select('notebook_id')
+      .eq('id', sourceId)
+      .single()
+
+    if (sourceError || !sourceData) {
+      console.error('Failed to fetch source notebook_id:', sourceError)
+      return new Response(
+        JSON.stringify({ error: 'Failed to fetch source information' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    const notebookId = sourceData.notebook_id
+    console.log('Source belongs to notebook:', notebookId)
+
     // Get Mathpix credentials
     const mathpixAppId = Deno.env.get('MATHPIX_APP_ID')
     const mathpixAppKey = Deno.env.get('MATHPIX_APP_KEY')
@@ -187,15 +205,49 @@ serve(async (req) => {
     
     console.log('HTML file uploaded successfully')
     
+    // Extract plain text from HTML for RAG/chat (remove HTML tags but keep content)
+    let plainText = htmlContent
+      // Remove script and style elements completely
+      .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+      .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '')
+      // Remove HTML tags but keep the text content
+      .replace(/<[^>]+>/g, ' ')
+      // Decode common HTML entities
+      .replace(/&nbsp;/g, ' ')
+      .replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&quot;/g, '"')
+      // Clean up whitespace
+      .replace(/\s+/g, ' ')
+      .trim()
+    
+    console.log('Extracted plain text for RAG, length:', plainText.length)
+    
+    // Get existing metadata or create empty object
+    const { data: existingSource } = await supabaseClient
+      .from('sources')
+      .select('metadata')
+      .eq('id', sourceId)
+      .single()
+    
+    const existingMetadata = existingSource?.metadata || {}
+    
     // Store HTML content directly in the database and mark as completed
-    // This way we skip the process-document webhook entirely
+    // HTML in content field (for display), plain text in metadata (for RAG)
     const { error: updateError } = await supabaseClient
       .from('sources')
       .update({ 
         file_path: htmlFilePath,
-        content: htmlContent,  // Store content directly
+        content: htmlContent,  // HTML for beautiful display in source viewer
         summary: 'Processed with Mathpix - LaTeX formatted content',  // Basic summary
         processing_status: 'completed',  // Mark as completed immediately
+        metadata: {
+          ...existingMetadata,
+          plain_text: plainText,  // Plain text for RAG/chat
+          is_mathpix_processed: true,
+          processed_at: new Date().toISOString()
+        },
         updated_at: new Date().toISOString()
       })
       .eq('id', sourceId)
@@ -205,7 +257,41 @@ serve(async (req) => {
       throw updateError
     }
     
-    console.log('Source updated with HTML content and marked as completed')
+    console.log('Source updated with HTML content (for display) and plain text (for RAG)')
+    
+    // Now send plain text to vector store for embeddings using our direct function
+    console.log('Calling direct vector store upsert function...')
+    
+    try {
+      const vectorResponse = await fetch(
+        `${Deno.env.get('SUPABASE_URL')}/functions/v1/upsert-to-vector-store`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${Deno.env.get('SUPABASE_ANON_KEY')}`,
+          },
+          body: JSON.stringify({
+            notebook_id: notebookId,
+            source_id: sourceId,
+            content: plainText
+          })
+        }
+      )
+      
+      console.log('Vector store response status:', vectorResponse.status)
+      
+      if (!vectorResponse.ok) {
+        const errorText = await vectorResponse.text()
+        console.error('Failed to upsert to vector store:', vectorResponse.status, errorText)
+      } else {
+        const responseData = await vectorResponse.json()
+        console.log('Successfully upserted to vector store:', responseData)
+      }
+    } catch (vectorError) {
+      console.error('Error calling vector store:', vectorError)
+      // Don't fail the whole process if vector store fails
+    }
     
     return new Response(
       JSON.stringify({ 

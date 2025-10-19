@@ -63,22 +63,43 @@ serve(async (req) => {
     const isHtmlFile = filePath && filePath.endsWith('.html')
     
     if (isHtmlFile) {
-      // For HTML files, download and send the content
-      console.log('Detected HTML file, downloading content...')
+      // For Mathpix HTML files, use plain_text from metadata for RAG
+      console.log('Detected HTML file, fetching plain text for RAG...')
       
-      const { data: fileData, error: downloadError } = await supabaseClient.storage
+      const { data: source, error: sourceError } = await supabaseClient
         .from('sources')
-        .download(filePath)
+        .select('metadata, content')
+        .eq('notebook_id', notebookId)
+        .single()
       
-      if (downloadError) {
-        console.error('Failed to download HTML file:', downloadError)
-        throw downloadError
+      if (sourceError) {
+        console.error('Failed to fetch source metadata:', sourceError)
+        throw sourceError
       }
       
-      const htmlContent = await fileData.text()
-      console.log('Downloaded HTML content, length:', htmlContent.length)
+      // Try to get plain_text from metadata (added by Mathpix preprocessing)
+      const plainText = source?.metadata?.plain_text
       
-      payload.content = htmlContent
+      if (plainText) {
+        console.log('Using plain text from metadata for RAG, length:', plainText.length)
+        payload.content = plainText  // Use plain text for RAG
+      } else {
+        // Fallback: download HTML file if plain_text not available
+        console.log('Plain text not in metadata, downloading HTML as fallback...')
+        const { data: fileData, error: downloadError } = await supabaseClient.storage
+          .from('sources')
+          .download(filePath)
+        
+        if (downloadError) {
+          console.error('Failed to download HTML file:', downloadError)
+          throw downloadError
+        }
+        
+        const htmlContent = await fileData.text()
+        console.log('Downloaded HTML content, length:', htmlContent.length)
+        payload.content = htmlContent
+      }
+      
       payload.filePath = filePath
     } else if (filePath) {
       // For other file sources (PDF, audio) or URLs (website, YouTube)

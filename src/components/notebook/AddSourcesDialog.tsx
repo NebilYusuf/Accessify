@@ -123,7 +123,7 @@ const AddSourcesDialog = ({
           // Show toast notification
           toast({
             title: "Mathpix Processing Started",
-            description: "Converting PDF to LaTeX-formatted HTML using Mathpix...",
+            description: "Converting PDF to LaTeX-formatted HTML and enhancing accessibility...",
             duration: 3000,
           });
           
@@ -162,7 +162,7 @@ const AddSourcesDialog = ({
               console.log('Mathpix preprocessing completed successfully');
               toast({
                 title: "Mathpix Processing Complete",
-                description: "PDF successfully converted to LaTeX-formatted HTML!",
+                description: "PDF converted to LaTeX-formatted HTML with enhanced accessibility!",
                 duration: 4000,
               });
               

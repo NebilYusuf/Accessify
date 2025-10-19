@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Plus, MoreVertical, Trash2, Edit, Loader2, CheckCircle, XCircle, Upload, Download, ExternalLink } from 'lucide-react';
+import { Plus, MoreVertical, Trash2, Edit, Loader2, CheckCircle, XCircle, Upload, Download, ExternalLink, Accessibility } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { supabase } from '@/integrations/supabase/client';
@@ -147,7 +147,7 @@ const SourcesSidebar = ({
       case 'uploading':
         return 'Your file is being uploaded';
       case 'processing':
-        return 'Converting PDF to LaTeX-formatted HTML using Mathpix and extracting content';
+        return 'Converting PDF to LaTeX-formatted HTML using Mathpix, extracting content, and enhancing accessibility';
       case 'completed':
         return 'Source is ready for use';
       case 'failed':
@@ -359,6 +359,14 @@ const SourcesSidebar = ({
                               {source.processing_status === 'processing' && source.file_path?.endsWith('.html') && (
                                 <span className="text-xs text-accent font-medium">Mathpix</span>
                               )}
+                              {source.metadata?.accessibility_enhanced && (
+                                <div className="flex items-center space-x-1">
+                                  <Accessibility className="h-3 w-3 text-green-600" />
+                                  <span className="text-xs text-green-600 font-medium">
+                                    {source.metadata?.accessibility_score || 0}% Accessible
+                                  </span>
+                                </div>
+                              )}
                             </div>
                           </div>
                         </div>
@@ -371,6 +379,27 @@ const SourcesSidebar = ({
                           <p className="text-xs text-primary/80">
                             {getStatusDescription(source.processing_status)}
                           </p>
+                        </div>
+                      )}
+                      {source.metadata?.accessibility_enhanced && source.metadata?.accessibility_improvements && (
+                        <div className="mt-2 p-2 bg-green-50 rounded-md border border-green-200">
+                          <div className="flex items-center space-x-1 mb-1">
+                            <Accessibility className="h-3 w-3 text-green-600" />
+                            <span className="text-xs text-green-700 font-medium">Accessibility Enhanced</span>
+                          </div>
+                          <ul className="text-xs text-green-600 space-y-1">
+                            {source.metadata.accessibility_improvements.slice(0, 3).map((improvement: string, index: number) => (
+                              <li key={index} className="flex items-start space-x-1">
+                                <span className="text-green-500 mt-0.5">•</span>
+                                <span>{improvement}</span>
+                              </li>
+                            ))}
+                            {source.metadata.accessibility_improvements.length > 3 && (
+                              <li className="text-green-500 font-medium">
+                                +{source.metadata.accessibility_improvements.length - 3} more improvements
+                              </li>
+                            )}
+                          </ul>
                         </div>
                       )}
                     </Card>

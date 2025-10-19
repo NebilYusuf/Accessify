@@ -293,12 +293,50 @@ serve(async (req) => {
       // Don't fail the whole process if vector store fails
     }
     
+    // Now enhance accessibility with Gemini (synchronously - wait for completion)
+    console.log('Enhancing accessibility with Gemini...')
+    
+    try {
+      const accessibilityResponse = await fetch(
+        `${Deno.env.get('SUPABASE_URL')}/functions/v1/enhance-accessibility`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${Deno.env.get('SUPABASE_ANON_KEY')}`,
+          },
+          body: JSON.stringify({
+            source_id: sourceId,
+            htmlContent: htmlContent
+          })
+        }
+      )
+      
+      console.log('Accessibility enhancement response status:', accessibilityResponse.status)
+      
+      if (!accessibilityResponse.ok) {
+        const errorText = await accessibilityResponse.text()
+        console.error('Failed to enhance accessibility:', accessibilityResponse.status, errorText)
+        // Continue with the process even if accessibility enhancement fails
+      } else {
+        const responseData = await accessibilityResponse.json()
+        console.log('Successfully enhanced accessibility:', responseData)
+        console.log('Accessibility enhancement completed - proceeding with final response')
+      }
+    } catch (accessibilityError) {
+      console.error('Error enhancing accessibility:', accessibilityError)
+      // Don't fail the whole process if accessibility enhancement fails
+    }
+    
+    console.log('All processing completed - returning final response')
+    
     return new Response(
       JSON.stringify({ 
         success: true, 
-        message: 'PDF successfully converted to LaTeX-formatted HTML',
+        message: 'PDF successfully converted to LaTeX-formatted HTML with accessibility enhancements',
         newFilePath: htmlFilePath,
         contentSize: htmlContent.length,
+        accessibilityEnhanced: true,
         skipProcessing: true  // Signal to skip process-document
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

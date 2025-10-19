@@ -1,9 +1,10 @@
 
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Plus, MoreVertical, Trash2, Edit, Loader2, CheckCircle, XCircle, Upload } from 'lucide-react';
+import { Plus, MoreVertical, Trash2, Edit, Loader2, CheckCircle, XCircle, Upload, Download, ExternalLink } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { supabase } from '@/integrations/supabase/client';
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from '@/components/ui/context-menu';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import AddSourcesDialog from './AddSourcesDialog';
@@ -168,6 +169,66 @@ const SourcesSidebar = ({
     setShowRenameDialog(true);
   };
 
+  const handleDownloadSource = async (source: any) => {
+    try {
+      // Check if this is an HTML source (Mathpix processed)
+      const isHtmlSource = source.file_path?.endsWith('.html');
+      
+      if (isHtmlSource && source.content) {
+        // For HTML sources, download the content directly
+        const blob = new Blob([source.content], { type: 'text/html' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${source.title.replace(/[^a-z0-9]/gi, '_')}.html`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+      } else if (source.file_path) {
+        // For other sources, download from storage
+        const { data, error } = await supabase.storage
+          .from('sources')
+          .download(source.file_path);
+        
+        if (error) throw error;
+        
+        const url = window.URL.createObjectURL(data);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = source.title;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+      }
+    } catch (error) {
+      console.error('Error downloading source:', error);
+    }
+  };
+
+  const handleOpenInNewTab = (source: any) => {
+    // Check if this is an HTML source (Mathpix processed)
+    const isHtmlSource = source.file_path?.endsWith('.html');
+    
+    if (isHtmlSource && source.content) {
+      // For HTML sources, open the content in a new tab
+      const blob = new Blob([source.content], { type: 'text/html' });
+      const url = window.URL.createObjectURL(blob);
+      window.open(url, '_blank');
+      // Note: URL will be revoked when the window is closed
+    } else if (source.file_path) {
+      // For other sources, get the public URL and open it
+      const { data } = supabase.storage
+        .from('sources')
+        .getPublicUrl(source.file_path);
+      
+      if (data?.publicUrl) {
+        window.open(data.publicUrl, '_blank');
+      }
+    }
+  };
+
   const handleSourceClick = (source: any) => {
     console.log('SourcesSidebar: Source clicked from list', {
       sourceId: source.id,
@@ -315,6 +376,14 @@ const SourcesSidebar = ({
                     </Card>
                   </ContextMenuTrigger>
                   <ContextMenuContent>
+                    <ContextMenuItem onClick={(e) => { e.stopPropagation(); handleOpenInNewTab(source); }}>
+                      <ExternalLink className="h-4 w-4 mr-2" />
+                      Open in new tab
+                    </ContextMenuItem>
+                    <ContextMenuItem onClick={(e) => { e.stopPropagation(); handleDownloadSource(source); }}>
+                      <Download className="h-4 w-4 mr-2" />
+                      Download
+                    </ContextMenuItem>
                     <ContextMenuItem onClick={() => handleRenameSource(source)}>
                       <Edit className="h-4 w-4 mr-2" />
                       Rename source

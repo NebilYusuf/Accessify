@@ -156,19 +156,24 @@ const SourceContentViewer = ({
   const lines = !isHtmlContent ? sourceContent.split('\n') : [];
   
   // Determine the highlight range based on whether we have valid citation line data
+    // For HTML content, we don't support line highlighting since HTML is not line-based
   let startLine: number;
   let endLine: number;
   
-  if (hasValidCitationLines) {
-    // For real citations with valid line data, highlight the specific lines
+  if (hasValidCitationLines && !isHtmlContent) {
+    // For real citations with valid line data in text content, highlight the specific lines
     startLine = citation.chunk_lines_from!;
     endLine = citation.chunk_lines_to!;
     console.log('SourceContentViewer: Will highlight lines', { startLine, endLine });
   } else {
-    // For source list clicks or citations without line data, don't highlight
+    // For source list clicks, citations without line data, or HTML content, don't highlight
     startLine = -1;
     endLine = -1;
-    console.log('SourceContentViewer: No highlighting (no valid line data)');
+    if (isHtmlContent) {
+      console.log('SourceContentViewer: HTML content - line highlighting not supported, showing full document');
+    } else {
+      console.log('SourceContentViewer: No highlighting (no valid line data)');
+    }
   }
 
   const renderHtmlContent = () => {

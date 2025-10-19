@@ -156,34 +156,147 @@ const SourceContentViewer = ({
   const lines = !isHtmlContent ? sourceContent.split('\n') : [];
   
   // Determine the highlight range based on whether we have valid citation line data
-    // For HTML content, we don't support line highlighting since HTML is not line-based
   let startLine: number;
   let endLine: number;
   
-  if (hasValidCitationLines && !isHtmlContent) {
-    // For real citations with valid line data in text content, highlight the specific lines
+  if (hasValidCitationLines) {
+    // For real citations with valid line data, highlight the specific lines
     startLine = citation.chunk_lines_from!;
     endLine = citation.chunk_lines_to!;
     console.log('SourceContentViewer: Will highlight lines', { startLine, endLine });
   } else {
-    // For source list clicks, citations without line data, or HTML content, don't highlight
+    // For source list clicks or citations without line data, don't highlight
     startLine = -1;
     endLine = -1;
-    if (isHtmlContent) {
-      console.log('SourceContentViewer: HTML content - line highlighting not supported, showing full document');
-    } else {
-      console.log('SourceContentViewer: No highlighting (no valid line data)');
-    }
+    console.log('SourceContentViewer: No highlighting (no valid line data)');
   }
 
   const renderHtmlContent = () => {
+    const iframeRef = useRef<HTMLIFrameElement>(null);
     return (
       <div className="w-full h-full">
         <iframe
+          ref={iframeRef}
           srcDoc={sourceContent}
           className="w-full h-full border-0"
-          sandbox="allow-same-origin"
+          sandbox="allow-same-origin allow-scripts"
           title="Source Content"
+          onLoad={() => {
+            const iframe = iframeRef.current;
+            if (!iframe) return;
+    
+            const doc = iframe.contentDocument || iframe.contentWindow?.document;
+            if (!doc) return;
+
+            const script = doc.createElement('script');
+            script.textContent = `
+              (function(){
+
+
+  // Function to handle text selection anywhere in the window
+  const textSelected = () => {
+    let rect = window.getSelection().getRangeAt(0).getBoundingClientRect()
+
+    async function speakTextWithElevenLabs(text) {
+      const DEFAULT_VOICE_ID = '21m00Tcm4TlvDq8ikWAM'; // Example: Rachel's voice ID. Choose your preferred default.
+  
+      const ELEVENLABS_API_KEY = '${import.meta.env.VITE_ELEVENLABS_API_KEY}';
+      if (!ELEVENLABS_API_KEY) {
+          console.error("ElevenLabs API key is not set. Please replace 'YOUR_ELEVENLABS_API_KEY'.");
+          return;
+      }
+  
+      try {
+          const response = await fetch("https://api.elevenlabs.io/v1/text-to-speech/" + DEFAULT_VOICE_ID, {
+              method: 'POST',
+              headers: {
+                  'Content-Type': 'application/json',
+                  'xi-api-key': ELEVENLABS_API_KEY,
+              },
+              body: JSON.stringify({
+                  text: text,
+                  model_id: 'eleven_multilingual_v2', // Or another preferred model
+                  voice_settings: {
+                      stability: 0.75,
+                      similarity_boost: 0.75
+                  }
+              })
+          });
+  
+          if (!response.ok) {
+              const errorData = await response.json();
+              throw new Error("ElevenLabs API error: " + response.status + " - " + errorData.detail);
+          }
+  
+          const audioBlob = await response.blob();
+          const audioUrl = URL.createObjectURL(audioBlob);
+          const audio = new Audio(audioUrl);
+          audio.play();
+  
+      } catch (error) {
+          console.error('Error generating or playing audio:', error);
+      }
+    }
+  
+  // Example usage:
+  // speakTextWithElevenLabs("Hello, this is a test of the ElevenLabs text-to-speech integration.");
+
+    function addFloatingSpeakTextButton(x, y) {
+      const floatingButton = document.createElement('button');
+      floatingButton.textContent = 'Speak text using ElevenLabs';
+      floatingButton.id = 'myFloatingButton'; // Optional: for easier selection later
+  
+      floatingButton.style.position = 'fixed';
+      floatingButton.style.left = x + "px";
+      floatingButton.style.top = y + "px";
+      floatingButton.style.zIndex = '9999'; // Ensure it's on top
+      floatingButton.style.backgroundColor = 'black'; // Example styling
+      floatingButton.style.color = 'white';
+      floatingButton.style.padding = '10px 20px';
+      floatingButton.style.border = 'none';
+      floatingButton.style.borderRadius = '8px';
+      floatingButton.style.cursor = 'pointer';
+  
+      // Optional: Add an event listener
+      floatingButton.addEventListener('click', () => {
+        speakTextWithElevenLabs(window.getSelection().toString());
+      });
+
+      (window).floatingSpeakTextButton = floatingButton;
+      document.body.appendChild(floatingButton);
+    }
+  
+    // Call the function to add a button at (50, 100)
+
+    const buttonHeight = 50;
+    const buttonWidth = 200;
+
+    addFloatingSpeakTextButton(rect.x + ((rect.width - buttonWidth) / 2), rect.y - buttonHeight);
+
+    console.log('Text selected');
+    // Empty function as requested - can be extended later
+  };
+              
+const handleTextSelection = () => {
+  if ((window).floatingSpeakTextButton) {
+    let currentButton = (window).floatingSpeakTextButton;
+    setTimeout(() => {
+      currentButton.remove();
+    }, 100);
+  }
+  const selection = window.getSelection();
+  if (selection && selection.toString().trim().length > 0) {
+    textSelected();
+  }
+};
+
+// Add event listeners for text selection
+document.addEventListener('mouseup', handleTextSelection);
+document.addEventListener('keyup', handleTextSelection);
+              })();
+            `;
+            doc.head.appendChild(script);
+          }}
         />
       </div>
     );

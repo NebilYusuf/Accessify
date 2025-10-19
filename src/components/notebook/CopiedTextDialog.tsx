@@ -87,7 +87,7 @@ const CopiedTextDialog = ({
       <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle className="flex items-center space-x-2">
-            <Copy className="h-5 w-5 text-purple-600" />
+            <Copy className="h-5 w-5 text-accent" />
             <span>Add Copied Text</span>
           </DialogTitle>
         </DialogHeader>

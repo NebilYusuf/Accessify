@@ -54,7 +54,7 @@ const SourceViewer = ({ citation, open, onOpenChange }: SourceViewerProps) => {
           </div>
           
           {citation.excerpt && (
-            <div className="border-l-4 border-blue-500 pl-4">
+            <div className="border-l-4 border-primary pl-4">
               <h4 className="font-medium text-gray-900 mb-2">Source Excerpt</h4>
               <ScrollArea className="max-h-64">
                 <p className="text-sm text-gray-700 leading-relaxed">

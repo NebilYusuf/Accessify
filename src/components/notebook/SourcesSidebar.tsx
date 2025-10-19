@@ -110,9 +110,9 @@ const SourcesSidebar = ({
   const renderProcessingStatus = (status: string) => {
     switch (status) {
       case 'uploading':
-        return <Upload className="h-4 w-4 animate-pulse text-blue-500" />;
+        return <Upload className="h-4 w-4 animate-pulse text-primary" />;
       case 'processing':
-        return <Loader2 className="h-4 w-4 animate-spin text-blue-500" />;
+        return <Loader2 className="h-4 w-4 animate-spin text-primary" />;
       case 'completed':
         return <CheckCircle className="h-4 w-4 text-green-500" />;
       case 'failed':
@@ -121,6 +121,40 @@ const SourcesSidebar = ({
         return <Loader2 className="h-4 w-4 animate-pulse text-gray-500" />;
       default:
         return null;
+    }
+  };
+
+  const getStatusText = (status: string) => {
+    switch (status) {
+      case 'uploading':
+        return 'Uploading...';
+      case 'processing':
+        return 'Processing with Mathpix...';
+      case 'completed':
+        return 'Ready';
+      case 'failed':
+        return 'Error';
+      case 'pending':
+        return 'Pending';
+      default:
+        return 'Unknown';
+    }
+  };
+
+  const getStatusDescription = (status: string) => {
+    switch (status) {
+      case 'uploading':
+        return 'Your file is being uploaded';
+      case 'processing':
+        return 'Converting PDF to LaTeX-formatted HTML using Mathpix and extracting content';
+      case 'completed':
+        return 'Source is ready for use';
+      case 'failed':
+        return 'Something went wrong';
+      case 'pending':
+        return 'Waiting to be processed';
+      default:
+        return 'Unknown status';
     }
   };
 
@@ -259,12 +293,25 @@ const SourcesSidebar = ({
                           </div>
                           <div className="flex-1 min-w-0">
                             <span className="text-sm text-gray-900 truncate block">{source.title}</span>
+                            <div className="flex items-center space-x-2 mt-1">
+                              <span className="text-xs text-gray-500">{getStatusText(source.processing_status)}</span>
+                              {source.processing_status === 'processing' && source.file_path?.endsWith('.html') && (
+                                <span className="text-xs text-accent font-medium">Mathpix</span>
+                              )}
+                            </div>
                           </div>
                         </div>
                         <div className="flex-shrink-0 py-[4px]">
                           {renderProcessingStatus(source.processing_status)}
                         </div>
                       </div>
+                      {source.processing_status === 'processing' && (
+                        <div className="mt-2 p-2 bg-primary/5 rounded-md border border-primary/20">
+                          <p className="text-xs text-primary/80">
+                            {getStatusDescription(source.processing_status)}
+                          </p>
+                        </div>
+                      )}
                     </Card>
                   </ContextMenuTrigger>
                   <ContextMenuContent>

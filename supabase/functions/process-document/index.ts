@@ -51,16 +51,55 @@ serve(async (req) => {
 
     console.log('Calling external webhook:', webhookUrl);
 
-    // Create the file URL for public access
-    const fileUrl = `${Deno.env.get('SUPABASE_URL')}/storage/v1/object/public/sources/${filePath}`
-
-    // Prepare the payload for the webhook with correct variable names
-    const payload = {
-      source_id: sourceId,
-      file_url: fileUrl,
-      file_path: filePath,
-      source_type: sourceType,
-      callback_url: `${Deno.env.get('SUPABASE_URL')}/functions/v1/process-document-callback`
+    // Check if this is an HTML file (from Mathpix preprocessing)
+    const isHtmlFile = filePath.endsWith('.html')
+    
+    let payload
+    
+    if (isHtmlFile) {
+      // For HTML files, download the content and send it directly
+      console.log('Detected HTML file, downloading content...')
+      
+      const supabaseClient = createClient(
+        Deno.env.get('SUPABASE_URL') ?? '',
+        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+      )
+      
+      const { data: fileData, error: downloadError } = await supabaseClient.storage
+        .from('sources')
+        .download(filePath)
+      
+      if (downloadError) {
+        console.error('Failed to download HTML file:', downloadError)
+        throw downloadError
+      }
+      
+      const htmlContent = await fileData.text()
+      console.log('Downloaded HTML content, length:', htmlContent.length)
+      console.log('HTML content preview (first 500 chars):', htmlContent.substring(0, 500))
+      
+      // Send HTML content directly in the payload
+      payload = {
+        source_id: sourceId,
+        content: htmlContent,
+        file_path: filePath,
+        source_type: 'text',  // Treat as text
+        callback_url: `${Deno.env.get('SUPABASE_URL')}/functions/v1/process-document-callback`
+      }
+      
+      console.log('Payload keys:', Object.keys(payload))
+      console.log('Payload content length:', payload.content?.length)
+    } else {
+      // For other files (PDF, etc), use the file URL
+      const fileUrl = `${Deno.env.get('SUPABASE_URL')}/storage/v1/object/public/sources/${filePath}`
+      
+      payload = {
+        source_id: sourceId,
+        file_url: fileUrl,
+        file_path: filePath,
+        source_type: sourceType,
+        callback_url: `${Deno.env.get('SUPABASE_URL')}/functions/v1/process-document-callback`
+      }
     }
 
     console.log('Webhook payload:', payload);

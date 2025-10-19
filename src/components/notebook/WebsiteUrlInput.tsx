@@ -42,7 +42,7 @@ const WebsiteUrlInput = ({ open, onOpenChange, onSubmit }: WebsiteUrlInputProps)
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center space-x-2">
-            <Globe className="h-5 w-5 text-blue-600" />
+            <Globe className="h-5 w-5 text-primary" />
             <span>Add Website</span>
           </DialogTitle>
         </DialogHeader>

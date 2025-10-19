@@ -63,7 +63,7 @@ const NotebookCard = ({
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction onClick={handleConfirmDelete} className="bg-blue-600 hover:bg-blue-700" disabled={isDeleting}>
+              <AlertDialogAction onClick={handleConfirmDelete} disabled={isDeleting}>
                 {isDeleting ? 'Deleting...' : 'Delete'}
               </AlertDialogAction>
             </AlertDialogFooter>

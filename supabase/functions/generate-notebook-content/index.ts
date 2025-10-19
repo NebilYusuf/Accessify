@@ -59,8 +59,29 @@ serve(async (req) => {
       sourceType: sourceType
     };
 
-    if (filePath) {
-      // For file sources (PDF, audio) or URLs (website, YouTube)
+    // Check if this is an HTML file (from Mathpix preprocessing)
+    const isHtmlFile = filePath && filePath.endsWith('.html')
+    
+    if (isHtmlFile) {
+      // For HTML files, download and send the content
+      console.log('Detected HTML file, downloading content...')
+      
+      const { data: fileData, error: downloadError } = await supabaseClient.storage
+        .from('sources')
+        .download(filePath)
+      
+      if (downloadError) {
+        console.error('Failed to download HTML file:', downloadError)
+        throw downloadError
+      }
+      
+      const htmlContent = await fileData.text()
+      console.log('Downloaded HTML content, length:', htmlContent.length)
+      
+      payload.content = htmlContent
+      payload.filePath = filePath
+    } else if (filePath) {
+      // For other file sources (PDF, audio) or URLs (website, YouTube)
       payload.filePath = filePath;
     } else {
       // For text sources, we need to get the content from the database
@@ -71,11 +92,11 @@ serve(async (req) => {
         .single();
       
       if (source?.content) {
-        payload.content = source.content.substring(0, 5000); // Limit content size
+        payload.content = source.content;
       }
     }
 
-    console.log('Sending payload to web service:', payload);
+    console.log('Sending payload to web service. Keys:', Object.keys(payload), 'Content length:', payload.content?.length || 0);
 
     // Call external web service
     const response = await fetch(webServiceUrl, {

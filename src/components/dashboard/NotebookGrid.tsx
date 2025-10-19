@@ -71,7 +71,7 @@ const NotebookGrid = () => {
 
   return <div>
       <div className="flex items-center justify-between mb-8">
-        <Button className="bg-black hover:bg-gray-800 text-white rounded-full px-6" onClick={handleCreateNotebook} disabled={isCreating}>
+        <Button className="bg-primary hover:bg-primary/90 text-white rounded-full px-6" onClick={handleCreateNotebook} disabled={isCreating}>
           {isCreating ? 'Creating...' : '+ Create new'}
         </Button>
         

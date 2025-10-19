@@ -348,10 +348,10 @@ const AudioPlayer = ({
 
       {/* Auto-refresh indicator */}
       {autoRetryInProgress && (
-        <div className="flex items-center justify-between p-3 bg-blue-50 rounded-md border border-blue-200">
+        <div className="flex items-center justify-between p-3 bg-primary/5 rounded-md border border-primary/20">
           <div className="flex items-center space-x-2">
-            <Loader2 className="h-4 w-4 text-blue-600 animate-spin" />
-            <span className="text-sm text-blue-600">Refreshing audio access...</span>
+            <Loader2 className="h-4 w-4 text-primary animate-spin" />
+            <span className="text-sm text-primary">Refreshing audio access...</span>
           </div>
         </div>
       )}

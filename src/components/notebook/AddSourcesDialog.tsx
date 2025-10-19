@@ -89,7 +89,7 @@ const AddSourcesDialog = ({
   const processFileAsync = async (file: File, sourceId: string, notebookId: string) => {
     try {
       console.log('Starting file processing for:', file.name, 'source:', sourceId);
-      const fileType = file.type.includes('pdf') ? 'pdf' : file.type.includes('audio') ? 'audio' : 'text';
+      let fileType = file.type.includes('pdf') ? 'pdf' : file.type.includes('audio') ? 'audio' : 'text';
 
       // Update status to uploading
       updateSource({
@@ -100,7 +100,7 @@ const AddSourcesDialog = ({
       });
 
       // Upload the file
-      const filePath = await uploadFile(file, notebookId, sourceId);
+      let filePath = await uploadFile(file, notebookId, sourceId);
       if (!filePath) {
         throw new Error('File upload failed - no file path returned');
       }
@@ -115,8 +115,101 @@ const AddSourcesDialog = ({
         }
       });
 
-      // Start document processing
+      // Preprocess PDF with Mathpix if it's a PDF file
+      if (fileType === 'pdf') {
+        try {
+          console.log('Starting Mathpix preprocessing for PDF...');
+          
+          // Show toast notification
+          toast({
+            title: "Mathpix Processing Started",
+            description: "Converting PDF to LaTeX-formatted HTML using Mathpix...",
+            duration: 3000,
+          });
+          
+          updateSource({
+            sourceId,
+            updates: {
+              processing_status: 'processing'
+            }
+          });
+
+          const { data: preprocessData, error: preprocessError } = await supabase.functions.invoke('preprocess-pdf-mathpix', {
+            body: {
+              sourceId,
+              filePath
+            }
+          });
+
+          if (preprocessError) {
+            console.error('Mathpix preprocessing error:', preprocessError);
+            toast({
+              title: "Mathpix Processing Failed",
+              description: "Continuing with regular processing...",
+              variant: "destructive",
+              duration: 5000,
+            });
+            // Continue with regular processing even if Mathpix fails
+          } else {
+            if (preprocessData?.skipped) {
+              console.log('Mathpix preprocessing skipped (file too large)');
+              toast({
+                title: "Mathpix Processing Skipped",
+                description: "File too large for Mathpix processing, using regular processing instead.",
+                duration: 5000,
+              });
+            } else {
+              console.log('Mathpix preprocessing completed successfully');
+              toast({
+                title: "Mathpix Processing Complete",
+                description: "PDF successfully converted to LaTeX-formatted HTML!",
+                duration: 4000,
+              });
+              
+              // Update file path to the HTML file and change type to text
+              filePath = preprocessData.newFilePath || filePath;
+              fileType = 'text'; // Important: Change file type to text for HTML processing
+              
+              // If Mathpix already populated content, skip process-document
+              if (preprocessData.skipProcessing) {
+                console.log('Mathpix already populated content, skipping process-document and going straight to notebook generation');
+                
+                // Just generate notebook content
+                await generateNotebookContentAsync({
+                  notebookId,
+                  filePath,
+                  sourceType: fileType
+                });
+                
+                console.log('Notebook generation completed for Mathpix-processed document');
+                return; // Exit early - processing is done
+              }
+            }
+          }
+        } catch (preprocessError) {
+          console.error('Mathpix preprocessing failed:', preprocessError);
+          toast({
+            title: "Mathpix Processing Error",
+            description: "Something went wrong, continuing with regular processing...",
+            variant: "destructive",
+            duration: 5000,
+          });
+          // Continue with regular processing even if Mathpix fails
+        }
+
+        // Update status back to processing
+        updateSource({
+          sourceId,
+          updates: {
+            processing_status: 'processing'
+          }
+        });
+      }
+
+      // Start document processing (only reached if NOT Mathpix-processed)
+      console.log('Processing document with type:', fileType, 'and path:', filePath);
       try {
+        // Call process-document for all files to populate content and summary
         await processDocumentAsync({
           sourceId,
           filePath,
@@ -411,7 +504,7 @@ const AddSourcesDialog = ({
                     <path d="M480-80q-33 0-56.5-23.5T400-160h160q0 33-23.5 56.5T480-80ZM320-200v-80h320v80H320Zm10-120q-69-41-109.5-110T180-580q0-125 87.5-212.5T480-880q125 0 212.5 87.5T780-580q0 81-40.5 150T630-320H330Zm24-80h252q45-32 69.5-79T700-580q0-92-64-156t-156-64q-92 0-156 64t-64 156q0 54 24.5 101t69.5 79Zm126 0Z" />
                   </svg>
                 </div>
-                <DialogTitle className="text-xl font-medium">InsightsLM</DialogTitle>
+                <DialogTitle className="text-xl font-medium">Accessify</DialogTitle>
               </div>
             </div>
           </DialogHeader>
@@ -419,7 +512,7 @@ const AddSourcesDialog = ({
           <div className="space-y-6">
             <div>
               <h2 className="text-xl font-medium mb-2">Add sources</h2>
-              <p className="text-gray-600 text-sm mb-1">Sources let InsightsLM base its responses on the information that matters most to you.</p>
+              <p className="text-gray-600 text-sm mb-1">Sources let Accessify base its responses on the information that matters most to you.</p>
               <p className="text-gray-500 text-xs">
                 (Examples: marketing plans, course reading, research notes, meeting transcripts, sales documents, etc.)
               </p>
@@ -428,7 +521,7 @@ const AddSourcesDialog = ({
             {/* File Upload Area */}
             <div 
               className={`border-2 border-dashed rounded-lg p-12 text-center transition-colors ${
-                dragActive ? 'border-blue-400 bg-blue-50' : 'border-gray-300 hover:border-gray-400'
+                dragActive ? 'border-primary bg-primary/5' : 'border-gray-300 hover:border-gray-400'
               } ${isProcessingFiles ? 'opacity-50 pointer-events-none' : ''}`}
               onDragEnter={handleDrag}
               onDragLeave={handleDrag}
@@ -450,7 +543,7 @@ const AddSourcesDialog = ({
                       <>
                         Drag & drop or{' '}
                         <button 
-                          className="text-blue-600 hover:underline" 
+                          className="text-primary hover:underline" 
                           onClick={() => document.getElementById('file-upload')?.click()}
                           disabled={isProcessingFiles}
                         >
@@ -495,7 +588,7 @@ const AddSourcesDialog = ({
                 onClick={() => setShowCopiedTextDialog(true)}
                 disabled={isProcessingFiles}
               >
-                <Copy className="h-6 w-6 text-purple-600" />
+                <Copy className="h-6 w-6 text-accent" />
                 <span className="font-medium">Paste Text - Copied Text</span>
                 <span className="text-sm text-gray-500">Add copied content</span>
               </Button>

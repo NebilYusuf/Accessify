@@ -149,8 +149,11 @@ const SourceContentViewer = ({
     );
   };
 
-  // Split content into lines for highlighting
-  const lines = sourceContent.split('\n');
+  // Check if content is HTML (starts with <!DOCTYPE html> or <html>)
+  const isHtmlContent = sourceContent.trim().startsWith('<!DOCTYPE') || sourceContent.trim().startsWith('<html');
+  
+  // Split content into lines for highlighting (only for non-HTML content)
+  const lines = !isHtmlContent ? sourceContent.split('\n') : [];
   
   // Determine the highlight range based on whether we have valid citation line data
   let startLine: number;
@@ -167,6 +170,19 @@ const SourceContentViewer = ({
     endLine = -1;
     console.log('SourceContentViewer: No highlighting (no valid line data)');
   }
+
+  const renderHtmlContent = () => {
+    return (
+      <div className="w-full h-full">
+        <iframe
+          srcDoc={sourceContent}
+          className="w-full h-full border-0"
+          sandbox="allow-same-origin"
+          title="Source Content"
+        />
+      </div>
+    );
+  };
 
   const renderHighlightedContent = () => {
     return lines.map((line, index) => {
@@ -203,6 +219,11 @@ const SourceContentViewer = ({
             {getSourceIcon(citation.source_type)}
           </div>
           <span className="font-medium text-gray-900 truncate">{citation.source_title}</span>
+          {isHtmlContent && (
+            <Badge variant="secondary" className="text-xs bg-accent/20 text-accent-foreground">
+              LaTeX
+            </Badge>
+          )}
         </div>
       </div>
 
@@ -212,7 +233,7 @@ const SourceContentViewer = ({
           <Accordion type="single" value={accordionValue} onValueChange={setAccordionValue} collapsible>
             <AccordionItem value="guide" className="border-0">
               <AccordionTrigger 
-                className="px-4 py-3 text-sm font-medium hover:no-underline hover:bg-blue-50" 
+                className="px-4 py-3 text-sm font-medium hover:no-underline hover:bg-primary/5" 
                 style={{ color: '#234776' }}
                 chevronColor="#234776"
               >
@@ -238,7 +259,7 @@ const SourceContentViewer = ({
                         href={sourceUrl} 
                         target="_blank" 
                         rel="noopener noreferrer"
-                        className="text-blue-600 hover:text-blue-800 hover:underline break-all text-sm"
+                        className="text-primary hover:text-primary/80 hover:underline break-all text-sm"
                       >
                         {sourceUrl}
                       </a>
@@ -252,13 +273,21 @@ const SourceContentViewer = ({
       )}
 
       {/* Content */}
-      <ScrollArea className="flex-1 h-full" ref={scrollAreaViewportRef}>
-        <div className="p-4">
-          <div className="prose prose-gray max-w-none space-y-1">
-            {renderHighlightedContent()}
-          </div>
+      {isHtmlContent ? (
+        // Render HTML content in iframe
+        <div className="flex-1 h-full">
+          {renderHtmlContent()}
         </div>
-      </ScrollArea>
+      ) : (
+        // Render text content with highlighting
+        <ScrollArea className="flex-1 h-full" ref={scrollAreaViewportRef}>
+          <div className="p-4">
+            <div className="prose prose-gray max-w-none space-y-1">
+              {renderHighlightedContent()}
+            </div>
+          </div>
+        </ScrollArea>
+      )}
     </div>
   );
 };
